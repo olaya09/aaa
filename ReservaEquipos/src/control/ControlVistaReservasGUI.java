@@ -2,10 +2,7 @@ package control;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.ItemEvent;
-import java.awt.event.ItemListener;
 import java.util.List;
-import javax.swing.table.DefaultTableModel;
 import javax.swing.JOptionPane;
 
 import vista.VistaReservasGUI;
@@ -53,21 +50,22 @@ public class ControlVistaReservasGUI implements ActionListener {
         for (EquipoComputo pc : listadoEquiposComputo) {
             vistaReservas.jComb_equipoComputo.addItem(pc);
         }
-        vistaReservas.jComb_profesores.setSelectedIndex(-1);
-        vistaReservas.jComb_estudiantes.setSelectedIndex(-1);
-
-        vistaReservas.jComb_profesores.addItemListener(new ItemListener() {
-            public void itemStateChanged(ItemEvent e) {
-                if (e.getStateChange() == ItemEvent.SELECTED) {
-                    vistaReservas.jComb_estudiantes.setSelectedIndex(-1);
-                }
-            }
-        });
-        vistaReservas.jComb_estudiantes.addItemListener(new ItemListener() {
-            public void itemStateChanged(ItemEvent e) {
-                if (e.getStateChange() == ItemEvent.SELECTED) {
-                    vistaReservas.jComb_profesores.setSelectedIndex(-1);
-                }
+        vistaReservas.jComb_profesores.setEnabled(false);
+        vistaReservas.jComb_estudiantes.setEnabled(false);
+        vistaReservas.jComb_tipoPersona.setSelectedIndex(-1);
+        vistaReservas.jComb_tipoPersona.addActionListener(e -> {
+            String tipo = (String) vistaReservas.jComb_tipoPersona.getSelectedItem();
+            if ("Profesor".equals(tipo)) {
+                vistaReservas.jComb_profesores.setEnabled(true);
+                vistaReservas.jComb_estudiantes.setEnabled(false);
+                vistaReservas.jComb_estudiantes.setSelectedIndex(-1);
+            } else if ("Estudiante".equals(tipo)) {
+                vistaReservas.jComb_estudiantes.setEnabled(true);
+                vistaReservas.jComb_profesores.setEnabled(false);
+                vistaReservas.jComb_profesores.setSelectedIndex(-1);
+            } else {
+                vistaReservas.jComb_profesores.setEnabled(false);
+                vistaReservas.jComb_estudiantes.setEnabled(false);
             }
         });
 
@@ -75,25 +73,29 @@ public class ControlVistaReservasGUI implements ActionListener {
         vistaReservas.btn_ConsultarReservas.addActionListener(this);
         vistaReservas.btn_ListarReservas.addActionListener(this);
 
-        DefaultTableModel model = (DefaultTableModel) vistaReservas.jTable_Reservas.getModel();
-        model.setRowCount(0);
-
         vistaReservas.setVisible(true);
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == vistaReservas.jbtn_agregar) {
-            boolean profesorSel = vistaReservas.jComb_profesores.getSelectedIndex() >= 0;
-            boolean estudianteSel = vistaReservas.jComb_estudiantes.getSelectedIndex() >= 0;
-            if (profesorSel == estudianteSel) {
-                JOptionPane.showMessageDialog(null, "debe seleccionar solo un profesor o un estudiante");
+            String tipo = (String) vistaReservas.jComb_tipoPersona.getSelectedItem();
+            if (tipo == null) {
+                JOptionPane.showMessageDialog(null, "Seleccione si es profesor o estudiante");
                 return;
             }
             int idPersona;
-            if (estudianteSel) {
+            if ("Estudiante".equals(tipo)) {
+                if (vistaReservas.jComb_estudiantes.getSelectedIndex() < 0) {
+                    JOptionPane.showMessageDialog(null, "Seleccione un estudiante");
+                    return;
+                }
                 idPersona = ((Estudiante) vistaReservas.jComb_estudiantes.getSelectedItem()).getCodigo();
             } else {
+                if (vistaReservas.jComb_profesores.getSelectedIndex() < 0) {
+                    JOptionPane.showMessageDialog(null, "Seleccione un profesor");
+                    return;
+                }
                 idPersona = ((Profesor) vistaReservas.jComb_profesores.getSelectedItem()).getCedula();
             }
             int inventario = ((EquipoComputo) vistaReservas.jComb_equipoComputo.getSelectedItem()).getNumInvetario();
@@ -117,31 +119,37 @@ public class ControlVistaReservasGUI implements ActionListener {
                 JOptionPane.showMessageDialog(null, "reserva no encontrada");
                 return;
             }
-            for (int i = 0; i < listadoProfesores.size(); i++) {
-                if (listadoProfesores.get(i).getCedula() == r.getCedulaProfesor()) {
-                    vistaReservas.jComb_profesores.setSelectedIndex(i);
-                    vistaReservas.jComb_estudiantes.setSelectedIndex(-1);
-                    break;
+            String nombre = "", apellido = "", marca = "";
+            Profesor p = unProfeDAO.consultarProfesor(r.getCedulaProfesor());
+            if (p != null && p.getCedula() != 0) {
+                nombre = p.getNombre();
+                apellido = p.getApellido();
+                vistaReservas.jComb_tipoPersona.setSelectedItem("Profesor");
+                vistaReservas.jComb_profesores.setSelectedItem(p);
+            } else {
+                Estudiante es = unEstDAO.consultarEstudiante(r.getCedulaProfesor());
+                if (es != null && es.getCodigo() != 0) {
+                    nombre = es.getNombre();
+                    apellido = es.getApellido();
+                    vistaReservas.jComb_tipoPersona.setSelectedItem("Estudiante");
+                    vistaReservas.jComb_estudiantes.setSelectedItem(es);
                 }
             }
-            for (int i = 0; i < listadoEstudiantes.size(); i++) {
-                if (listadoEstudiantes.get(i).getCodigo() == r.getCedulaProfesor()) {
-                    vistaReservas.jComb_estudiantes.setSelectedIndex(i);
-                    vistaReservas.jComb_profesores.setSelectedIndex(-1);
-                    break;
-                }
+            EquipoComputo pc = unPcDAO.consultarEquipoComputo(r.getNoInventarioPC());
+            if (pc != null) {
+                marca = pc.getMarca();
+                vistaReservas.jComb_equipoComputo.setSelectedItem(pc);
             }
-            for (int i = 0; i < listadoEquiposComputo.size(); i++) {
-                if (listadoEquiposComputo.get(i).getNumInvetario() == r.getNoInventarioPC()) {
-                    vistaReservas.jComb_equipoComputo.setSelectedIndex(i);
-                    break;
-                }
-            }
+            String mensaje = "Codigo: " + r.getCodigo() + "\n" +
+                    "Persona: " + nombre + " " + apellido + " (" + r.getCedulaProfesor() + ")\n" +
+                    "Equipo: " + marca + "\n" +
+                    "Recogida: " + r.getFechaRecogida() + "\n" +
+                    "Entrega: " + r.getFechaEntrega();
+            JOptionPane.showMessageDialog(null, mensaje);
         }
         if (e.getSource() == vistaReservas.btn_ListarReservas) {
-            DefaultTableModel modelo = (DefaultTableModel) vistaReservas.jTable_Reservas.getModel();
-            modelo.setRowCount(0);
             List<Reserva> lista = unaReservaDAO.listarReservas();
+            StringBuilder sb = new StringBuilder();
             for (Reserva r : lista) {
                 String nombre = "", apellido = "", marca = "";
                 Profesor p = unProfeDAO.consultarProfesor(r.getCedulaProfesor());
@@ -159,11 +167,15 @@ public class ControlVistaReservasGUI implements ActionListener {
                 if (pc != null) {
                     marca = pc.getMarca();
                 }
-                modelo.addRow(new Object[]{
-                    r.getCodigo(), r.getCedulaProfesor(), nombre,
-                    apellido, marca, r.getFechaRecogida(), r.getFechaEntrega()
-                });
+                sb.append("Codigo: ").append(r.getCodigo())
+                  .append(", persona: ").append(r.getCedulaProfesor())
+                  .append(" ").append(nombre).append(" ").append(apellido)
+                  .append(", equipo: ").append(marca)
+                  .append(", recogida: ").append(r.getFechaRecogida())
+                  .append(", entrega: ").append(r.getFechaEntrega())
+                  .append("\n");
             }
+            JOptionPane.showMessageDialog(null, sb.toString());
         }
     }
 }
